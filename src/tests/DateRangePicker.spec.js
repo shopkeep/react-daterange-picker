@@ -12,11 +12,13 @@ import ReactDOM from 'react-dom';
 import ReactTestUtils from 'react-dom/test-utils';
 import ShallowRenderer from 'react-test-renderer/shallow';
 import _ from 'underscore';
+import WeekBand from '../utils/WeekBand';
 
 
 describe('The DateRangePicker component', function () {
 
   beforeEach(function () {
+    spyOn(WeekBand, 'setupWeekBandLocale');
 
     const getDateRangePicker = (props) => {
       props = _.extend({}, props);
@@ -570,6 +572,7 @@ describe('The DateRangePicker component', function () {
       describe('if props.selectionType is range', function () {
 
         beforeEach( function () {
+          spyOn(WeekBand, 'shiftToWeekBand').and.returnValue(moment());
           this.useDocumentRenderer({
             initialYear: 2000,
             initialMonth: 6,
@@ -626,7 +629,8 @@ describe('The DateRangePicker component', function () {
             beforeEach( function () {
               spyOn(this.renderedComponent, 'isDateDisabled').and.returnValue(false);
               spyOn(this.renderedComponent, 'isDateSelectable').and.returnValue(true);
-              this.date = {};
+              this.clonedDate = {};
+              this.date = { clone: () => this.clonedDate };
             });
 
             it('calls #startRangeSelection', function () {
@@ -649,11 +653,48 @@ describe('The DateRangePicker component', function () {
               spyOn(this.renderedComponent, 'isDateDisabled').and.returnValue(false);
               spyOn(this.renderedComponent, 'isDateSelectable').and.returnValue(true);
               spyOn(this.renderedComponent, 'highlightRange');
+              spyOn(this.renderedComponent, 'onHighlightDate');
               this.renderedComponent.onSelectDate(this.date);
               expect(this.renderedComponent.highlightRange).toHaveBeenCalled();
               var range = this.renderedComponent.highlightRange.calls.first().args[0];
               expect(isMomentRange(range)).toBe(true);
               expect(areMomentRangesEqual(range, moment.range(this.date, this.date))).toBe(true);
+              expect(this.renderedComponent.onHighlightDate).toHaveBeenCalledTimes(1);
+              expect(this.renderedComponent.onHighlightDate).toHaveBeenCalledWith(this.clonedDate);
+            });
+
+            describe('if week banding is not enabled', function () {
+
+              beforeEach(function () {
+                this.useDocumentRenderer({
+                  initialYear: 2000,
+                  initialMonth: 6,
+                  selectionType: 'range',
+                  weekBandingDateRange: false,
+                });
+              });
+
+              it("does not shift the selected date range", function () {
+                expect(WeekBand.shiftToWeekBand).not.toHaveBeenCalled();
+              });
+
+            });
+
+            describe('if week banding is enabled', function () {
+
+              beforeEach(function () {
+                this.useDocumentRenderer({
+                  initialYear: 2000,
+                  initialMonth: 6,
+                  selectionType: 'range',
+                  weekBandingDateRange: true,
+                });
+              });
+
+              it("does not shift the selected date range", function () {
+                expect(WeekBand.shiftToWeekBand).not.toHaveBeenCalled();
+              });
+
             });
 
           });
@@ -701,31 +742,130 @@ describe('The DateRangePicker component', function () {
 
       describe('if props.selectionType is a range', function () {
 
-        beforeEach( function () {
-          this.useDocumentRenderer({
-            initialYear: 2000,
-            initialMonth: 6,
-            selectionType: 'range',
-          });
-          this.spy = spyOn(this.renderedComponent, 'highlightDate');
-        });
-
         describe('if state.selectedStartDate is defined', function () {
 
-          it('calls #highlightRange', function () {
-            var range = moment.range();
-            spyOn(this.renderedComponent, 'sanitizeRange').and.returnValue(range);
-            spyOn(this.renderedComponent, 'highlightRange');
-            this.renderedComponent.setState({
-              selectedStartDate: moment(),
+          describe('if week banding is not enabled', function () {
+
+            beforeEach( function () {
+              spyOn(WeekBand, 'shiftToWeekBand');
+              this.useDocumentRenderer({
+                initialYear: 2000,
+                initialMonth: 6,
+                selectionType: 'range',
+              });
             });
-            this.renderedComponent.onHighlightDate(moment());
-            expect(this.renderedComponent.highlightRange).toHaveBeenCalledWith(range);
+
+            it('calls #highlightRange', function () {
+              var range = moment.range();
+              spyOn(this.renderedComponent, 'sanitizeRange').and.returnValue(range);
+              spyOn(this.renderedComponent, 'highlightRange');
+              this.renderedComponent.setState({
+                selectedStartDate: moment(),
+              });
+              this.renderedComponent.onHighlightDate(moment());
+              expect(this.renderedComponent.highlightRange).toHaveBeenCalledWith(range);
+            });
+
+            describe('when selecting a range chronologically', function () {
+
+              beforeEach(function () {
+                this.selectedDate = moment.utc('2018-09-15T06:00:00');
+                this.highlightDate = moment.utc('2018-09-17T18:00:00');
+                this.renderedComponent.setState({
+                  selectedStartDate: this.selectedDate,
+                });
+                this.renderedComponent.onHighlightDate(this.highlightDate);
+              });
+
+              it("does not shift the selected date range", function () {
+                expect(WeekBand.shiftToWeekBand).not.toHaveBeenCalled();
+              });
+
+            });
+
+            describe('when selecting a range reverse chronologically', function () {
+
+              beforeEach(function () {
+                this.selectedDate = moment.utc('2018-09-17T18:00:00');
+                this.highlightDate = moment.utc('2018-09-15T06:00:00');
+                this.renderedComponent.setState({
+                  selectedStartDate: this.selectedDate,
+                });
+                this.renderedComponent.onHighlightDate(this.highlightDate);
+              });
+
+              it("does not shift the selected date range", function () {
+                expect(WeekBand.shiftToWeekBand).not.toHaveBeenCalled();
+              });
+
+            });
+
+          });
+
+          describe('if week banding is enabled', function () {
+
+            beforeEach( function () {
+              spyOn(WeekBand, 'shiftToWeekBand').and.returnValue(moment());
+              this.useDocumentRenderer({
+                initialYear: 2000,
+                initialMonth: 6,
+                selectionType: 'range',
+                weekBandingDateRange: true,
+              });
+            });
+
+            describe('when selecting a range chronologically', function () {
+
+              beforeEach(function () {
+                this.selectedDate = moment.utc('2018-09-15T06:00:00');
+                this.highlightDate = moment.utc('2018-09-17T18:00:00');
+                this.renderedComponent.setState({
+                  selectedStartDate: this.selectedDate,
+                });
+                this.renderedComponent.onHighlightDate(this.highlightDate);
+              });
+
+              it("shifts the selected date range", function () {
+                expect(WeekBand.shiftToWeekBand).toHaveBeenCalledTimes(2);
+                expect(WeekBand.shiftToWeekBand).toHaveBeenCalledWith(this.selectedDate, 'startOf');
+                expect(WeekBand.shiftToWeekBand).toHaveBeenCalledWith(this.highlightDate, 'endOf');
+              });
+
+            });
+
+            describe('when selecting a range reverse chronologically', function () {
+
+              beforeEach(function () {
+                this.selectedDate = moment.utc('2018-09-17T18:00:00');
+                this.highlightDate = moment.utc('2018-09-15T06:00:00');
+                this.renderedComponent.setState({
+                  selectedStartDate: this.selectedDate,
+                });
+                this.renderedComponent.onHighlightDate(this.highlightDate);
+              });
+
+              it("shifts the selected date range", function () {
+                expect(WeekBand.shiftToWeekBand).toHaveBeenCalledTimes(2);
+                expect(WeekBand.shiftToWeekBand).toHaveBeenCalledWith(this.selectedDate, 'endOf');
+                expect(WeekBand.shiftToWeekBand).toHaveBeenCalledWith(this.highlightDate, 'startOf');
+              });
+
+            });
+
           });
 
         });
 
         describe('if state.selectedStartDate is undefined', function () {
+
+          beforeEach( function () {
+            this.useDocumentRenderer({
+              initialYear: 2000,
+              initialMonth: 6,
+              selectionType: 'range',
+            });
+            this.spy = spyOn(this.renderedComponent, 'highlightDate');
+          });
 
           it('if the date is disabled, it does not call #highlightDate', function () {
             spyOn(this.renderedComponent, 'isDateDisabled').and.returnValue(true);
@@ -813,7 +953,129 @@ describe('The DateRangePicker component', function () {
 
   });
 
+  describe('#componentWillMount', function () {
+
+    describe('when week banding enabled', function () {
+
+      beforeEach(function () {
+        this.useShallowRenderer({
+          weekBandingDateRange: true,
+          weekBandingStartDayOfWeek: 5,
+        });
+      });
+
+      it('sets up the week band locale', function () {
+        expect(WeekBand.setupWeekBandLocale).toHaveBeenCalledTimes(1);
+        expect(WeekBand.setupWeekBandLocale).toHaveBeenCalledWith(5);
+      });
+
+    });
+
+    describe('when week banding not enabled', function () {
+
+      beforeEach(function () {
+        this.useShallowRenderer();
+      });
+
+      it('does not set up the week band locale', function () {
+        expect(WeekBand.setupWeekBandLocale).not.toHaveBeenCalled();
+      });
+
+    });
+
+  });
+
   describe('#componentWillReceiveProps', function () {
+
+    describe('updating week banding start', function () {
+
+      describe('when week banding enabled', function () {
+
+        beforeEach(function () {
+          this.useDocumentRenderer({
+            weekBandingDateRange: true,
+            weekBandingStartDayOfWeek: 5,
+          });
+          spyOn(this.renderedComponent, 'render').and.callFake(() => <div />);
+          spyOn(this.renderedComponent, 'getDateStates').and.returnValue(['newDateStates']);
+          WeekBand.setupWeekBandLocale.calls.reset();
+        });
+
+        describe('when the banding start has changed', function () {
+
+          beforeEach(function () {
+            this.renderedComponent.componentWillReceiveProps({
+              weekBandingStartDayOfWeek: 3,
+            });
+          });
+
+          it('sets up the week band locale', function () {
+            expect(WeekBand.setupWeekBandLocale).toHaveBeenCalledTimes(1);
+            expect(WeekBand.setupWeekBandLocale).toHaveBeenCalledWith(3);
+          });
+
+        });
+
+        describe('when the banding start has not changed', function () {
+
+          beforeEach(function () {
+            this.renderedComponent.componentWillReceiveProps({
+              weekBandingStartDayOfWeek: 5,
+            });
+          });
+
+          it('does not set up the week band locale', function () {
+            expect(WeekBand.setupWeekBandLocale).not.toHaveBeenCalled();
+          });
+
+        });
+
+      });
+
+      describe('when week banding not enabled', function () {
+
+        beforeEach(function () {
+          this.useDocumentRenderer({
+            weekBandingDateRange: false,
+            weekBandingStartDayOfWeek: 5,
+          });
+          spyOn(this.renderedComponent, 'render').and.callFake(() => <div />);
+          spyOn(this.renderedComponent, 'getDateStates').and.returnValue(['newDateStates']);
+          WeekBand.setupWeekBandLocale.calls.reset();
+        });
+
+        describe('when the banding start has changed', function () {
+
+          beforeEach(function () {
+            this.renderedComponent.componentWillReceiveProps({
+              weekBandingStartDayOfWeek: 3,
+            });
+          });
+
+          it('does not set up the week band locale', function () {
+            expect(WeekBand.setupWeekBandLocale).not.toHaveBeenCalled();
+          });
+
+        });
+
+        describe('when the banding start has not changed', function () {
+
+          beforeEach(function () {
+            this.renderedComponent.componentWillReceiveProps({
+              weekBandingStartDayOfWeek: 5,
+            });
+          });
+
+          it('does not set up the week band locale', function () {
+            expect(WeekBand.setupWeekBandLocale).not.toHaveBeenCalled();
+          });
+
+        });
+
+      });
+
+    });
+
     describe('updating date states', function () {
       it('updates state.dateStates if data provided in the props', function () {
         this.useDocumentRenderer({

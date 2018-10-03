@@ -7,6 +7,7 @@ import calendar from 'calendar';
 import Immutable from 'immutable';
 
 import BemMixin from '../utils/BemMixin';
+import WeekBand from '../utils/WeekBand';
 import CustomPropTypes from '../utils/CustomPropTypes';
 import isMomentRange from '../utils/isMomentRange';
 import PureRenderMixin from '../utils/PureRenderMixin';
@@ -26,6 +27,7 @@ const CalendarMonth = createClass({
     highlightedRange: PropTypes.object,
     onMonthChange: PropTypes.func,
     onYearChange: PropTypes.func,
+    weekBandingDateRange: PropTypes.bool,
     value: CustomPropTypes.momentOrMomentRange,
     locale: PropTypes.string,
   },
@@ -49,7 +51,7 @@ const CalendarMonth = createClass({
   },
 
   renderDay(date, i) {
-    let {dateComponent: CalendarDate, value, highlightedDate, highlightedRange, hideSelection, enabledRange, ...props} = this.props;
+    let {dateComponent: CalendarDate, value, highlightedDate, highlightedRange, hideSelection, enabledRange, weekBandingDateRange, ...props} = this.props;
     let d = moment(date).locale(this.props.locale);
 
     let isInSelectedRange;
@@ -71,7 +73,12 @@ const CalendarMonth = createClass({
         key={i}
         isToday={d.isSame(moment(), 'day')}
         isDisabled={!enabledRange.contains(d)}
-        isHighlightedDate={!!(highlightedDate && highlightedDate.isSame(d, 'day'))}
+        isHighlightedDate={!!(
+          highlightedDate && (
+            highlightedDate.isSame(d, 'day') ||
+            (weekBandingDateRange && WeekBand.checkInWeekBand(highlightedDate, d))
+          )
+        )}
         isHighlightedRangeStart={!!(highlightedRange && highlightedRange.start.isSame(d, 'day'))}
         isHighlightedRangeEnd={!!(highlightedRange && highlightedRange.end.isSame(d, 'day'))}
         isInHighlightedRange={!!(highlightedRange && highlightedRange.contains(d))}

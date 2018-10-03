@@ -7,6 +7,7 @@ import Immutable from 'immutable';
 import calendar from 'calendar';
 
 import BemMixin from './utils/BemMixin';
+import WeekBand from './utils/WeekBand';
 import CustomPropTypes from './utils/CustomPropTypes';
 import Legend from './Legend';
 
@@ -56,6 +57,8 @@ const DateRangePicker = createClass({
     selectedLabel: PropTypes.string,
     selectionType: PropTypes.oneOf(['single', 'range']),
     singleDateRange: PropTypes.bool,
+    weekBandingDateRange: PropTypes.bool,
+    weekBandingStartDayOfWeek: PropTypes.number,
     showLegend: PropTypes.bool,
     stateDefinitions: PropTypes.object,
     value: CustomPropTypes.momentOrMomentRange,
@@ -79,6 +82,8 @@ const DateRangePicker = createClass({
       locale: moment().locale(),
       selectionType: 'range',
       singleDateRange: false,
+      weekBandingDateRange: false,
+      weekBandingStartDayOfWeek: 7,
       stateDefinitions: {
         '__default': {
           color: null,
@@ -95,7 +100,17 @@ const DateRangePicker = createClass({
     };
   },
 
+  componentWillMount() {
+    if (this.props.weekBandingDateRange) {
+      WeekBand.setupWeekBandLocale(this.props.weekBandingStartDayOfWeek);
+    }
+  },
+
   componentWillReceiveProps(nextProps) {
+    if (this.props.weekBandingDateRange && this.props.weekBandingStartDayOfWeek !== nextProps.weekBandingStartDayOfWeek) {
+      WeekBand.setupWeekBandLocale(nextProps.weekBandingStartDayOfWeek);
+    }
+
     const nextDateStates = this.getDateStates(nextProps);
     const nextEnabledRange = this.getEnabledRange(nextProps);
 
@@ -267,17 +282,25 @@ const DateRangePicker = createClass({
   },
 
   onSelectDate(date) {
-    let {selectionType} = this.props;
+    let {selectionType, weekBandingDateRange} = this.props;
     let {selectedStartDate} = this.state;
 
     if (selectionType === 'range') {
       if (selectedStartDate) {
         this.completeRangeSelection();
       } else if (date && !this.isDateDisabled(date) && this.isDateSelectable(date)) {
+        const originalDateSelection = date.clone();
+
+        if (weekBandingDateRange) {
+          date = WeekBand.shiftToWeekBand(date, 'startOf');
+        }
+
         this.startRangeSelection(date);
         if (this.props.singleDateRange) {
           this.highlightRange(moment.range(date, date));
         }
+
+        this.onHighlightDate(originalDateSelection);
       }
 
     } else {
@@ -288,7 +311,7 @@ const DateRangePicker = createClass({
   },
 
   onHighlightDate(date) {
-    let {selectionType} = this.props;
+    let {selectionType, weekBandingDateRange} = this.props;
     let {selectedStartDate} = this.state;
 
     let datePair;
@@ -300,6 +323,15 @@ const DateRangePicker = createClass({
         datePair = Immutable.List.of(selectedStartDate, date).sortBy(d => d.unix());
         range = moment.range(datePair.get(0), datePair.get(1));
         forwards = (range.start.unix() === selectedStartDate.unix());
+
+        if (weekBandingDateRange) {
+          const [selectedDirection, dateDirection] = forwards ? ['startOf', 'endOf'] : ['endOf', 'startOf'];
+          selectedStartDate = WeekBand.shiftToWeekBand(selectedStartDate, selectedDirection);
+          date = WeekBand.shiftToWeekBand(date, dateDirection);
+          datePair = Immutable.List.of(selectedStartDate, date).sortBy(d => d.unix());
+          range = moment.range(datePair.get(0), datePair.get(1));
+        }
+
         range = this.sanitizeRange(range, forwards);
         this.highlightRange(range);
       } else if (!this.isDateDisabled(date) && this.isDateSelectable(date)) {
@@ -460,6 +492,7 @@ const DateRangePicker = createClass({
       firstOfWeek,
       numberOfCalendars,
       selectionType,
+      weekBandingDateRange,
       value,
     } = this.props;
 
@@ -510,6 +543,7 @@ const DateRangePicker = createClass({
       index,
       key,
       selectionType,
+      weekBandingDateRange,
       value,
       maxIndex: numberOfCalendars - 1,
       firstOfMonth: monthDate,

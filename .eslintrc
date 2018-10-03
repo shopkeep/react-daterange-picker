@@ -37,6 +37,7 @@
 
   "globals": {
     "spyOn": true,
+    "beforeAll": true,
     "beforeEach": true,
     "afterEach": true,
     "describe": true,

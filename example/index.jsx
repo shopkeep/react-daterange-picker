@@ -203,6 +203,13 @@ const Index = createClass({
     });
   },
 
+  _selectWeekStart() {
+    const weekStart = parseInt(this.refs['week-start'].value, 10);
+    this.setState({
+      weekStart: isNaN(weekStart) ? undefined : weekStart,
+    });
+  },
+
   render() {
     const stateDefinitions = {
       available: {
@@ -284,6 +291,28 @@ const Index = createClass({
                 numberOfCalendars={2}
                 selectionType="range"
                 singleDateRange={true}
+                minimumDate={new Date()} />
+            </div>
+
+            <div className="example">
+              <h4>
+                Week banding for weeks starting on &nbsp;&nbsp;
+                <select ref="week-start" onChange={this._selectWeekStart} name="week-start" id="week-start">
+                  <option value="">Default</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                  <option value="7">Sunday</option>
+                </select>
+              </h4>
+              <DatePickerRange
+                numberOfCalendars={2}
+                selectionType="range"
+                weekBandingDateRange={true}
+                weekBandingStartDayOfWeek={this.state.weekStart}
                 minimumDate={new Date()} />
             </div>
 
